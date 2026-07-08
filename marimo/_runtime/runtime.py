@@ -2206,6 +2206,11 @@ class Kernel:
 
         self.load_dotenv()
 
+        # Fork: bind the session-level data source, if one is configured
+        from marimo._fork.datasource_mount import mount_session_data_source
+
+        mount_session_data_source(self)
+
         if self.graph.cells:
             del request
             LOGGER.info("App is already instantiated, skipping instantiation.")

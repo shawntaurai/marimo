@@ -12,6 +12,7 @@ Usage:
 
 If VERSION is omitted, it is read from pyproject.toml.
 """
+# ruff: noqa: T201
 
 from __future__ import annotations
 
@@ -19,10 +20,11 @@ import io
 import json
 import shutil
 import sys
-import tomllib
 import urllib.request
 import zipfile
 from pathlib import Path
+
+import tomllib
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TARGETS = ("marimo/_static", "marimo/_lsp")
@@ -31,7 +33,9 @@ TARGETS = ("marimo/_static", "marimo/_lsp")
 def resolve_version() -> str:
     if len(sys.argv) > 1:
         return sys.argv[1]
-    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text("utf-8"))
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text("utf-8")
+    )
     return pyproject["project"]["version"]
 
 

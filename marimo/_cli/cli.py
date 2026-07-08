@@ -437,6 +437,17 @@ class _OptionalValueOption(click.Option):
     type=int,
     help="Seconds to wait before closing a session on websocket disconnect. If None is provided, sessions are not automatically closed.",
 )
+@click.option(
+    "--data-source",
+    default=None,
+    type=str,
+    help=(
+        "Fork: mount a primary data source for every session — a database "
+        "URI (e.g. postgresql://...) or a .csv/.parquet/.json/.sql/.db/"
+        ".duckdb/.sqlite file. Available as `datasource` and used as the "
+        "default engine for mo.sql()."
+    ),
+)
 @click.argument(
     "name",
     required=False,
@@ -467,10 +478,16 @@ def edit(
     asset_url: str | None,
     timeout: float | None,
     session_ttl: int | None,
+    data_source: str | None,
     name: str | None,
     args: tuple[str, ...],
 ) -> None:
     from marimo._cli.sandbox import SandboxMode, resolve_sandbox_mode
+
+    if data_source is not None:
+        from marimo._fork.datasource_mount import set_data_source
+
+        set_data_source(data_source)
 
     pass_on_stdin = token_password_file == "-"
     # We support unix-style piping, e.g. cat notebook.py | marimo edit
@@ -1109,6 +1126,17 @@ Example:
     type=bool,
     help="Show detailed error tracebacks in a modal when exceptions occur.",
 )
+@click.option(
+    "--data-source",
+    default=None,
+    type=str,
+    help=(
+        "Fork: mount a primary data source for every session — a database "
+        "URI (e.g. postgresql://...) or a .csv/.parquet/.json/.sql/.db/"
+        ".duckdb/.sqlite file. Available as `datasource` and used as the "
+        "default engine for mo.sql()."
+    ),
+)
 @click.pass_context
 @click.argument(
     "name",
@@ -1138,9 +1166,15 @@ def run(
     server_startup_command: str | None,
     asset_url: str | None,
     show_tracebacks: bool | None,
+    data_source: str | None,
     name: str,
     args: tuple[str, ...],
 ) -> None:
+    if data_source is not None:
+        from marimo._fork.datasource_mount import set_data_source
+
+        set_data_source(data_source)
+
     from marimo._cli.sandbox import (
         SandboxMode,
         resolve_sandbox_mode,

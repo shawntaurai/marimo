@@ -108,6 +108,12 @@ def sql(
     if query is None or query.strip() == "":
         return None
 
+    if engine is None:
+        # Fork: a session-mounted data source is the default engine
+        from marimo._fork.datasource_mount import get_mounted_connection
+
+        engine = get_mounted_connection()
+
     sql_engine: QueryEngine[Any]
     if engine is None:
         DependencyManager.require_many(
