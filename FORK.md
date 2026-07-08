@@ -3,6 +3,48 @@
 This is a customization fork of [marimo-team/marimo](https://github.com/marimo-team/marimo)
 for an internal analytics tool (dashboards + scheduled reports).
 
+## Fork features
+
+### Session-level data source mounting
+
+Bind a session to one primary data source at launch:
+
+```bash
+marimo edit report.py --data-source postgresql://user:pw@host/db
+marimo edit report.py --data-source ./sales.csv
+marimo run report.py  --data-source ./warehouse.duckdb
+MARIMO_DATA_SOURCE=postgresql://... python report.py   # scripts/cron
+```
+
+Supported specs: any SQLAlchemy URI; `.csv/.tsv/.parquet/.json/.jsonl`
+(DuckDB view named after the file); `.sql` (seeds an in-memory DuckDB);
+`.db/.duckdb/.ddb`; `.sqlite/.sqlite3`.
+
+The mounted connection is exposed as the `datasource` variable, appears in
+the datasources panel, and is the default engine for `mo.sql(...)` when no
+`engine=` is passed. Code: `marimo/_fork/datasource_mount.py`; hooks in
+`marimo/_cli/cli.py` (edit/run), `Kernel.instantiate`, `marimo/_sql/sql.py`.
+
+### Schema-aware AI chat (NL → SQL)
+
+When a source is mounted, every AI chat prompt automatically includes an
+introspected schema: tables, columns with types, primary keys, and
+foreign-key relationships, plus instructions to answer data questions with
+SQL against the mounted source. Introspection is cached 5 minutes; size is
+capped via `MARIMO_SCHEMA_CONTEXT_MAX_CHARS` (default 12000). Code:
+`marimo/_fork/schema_context.py`; hook in `marimo/_server/ai/prompts.py`
+(`_common_chat_sections`).
+
+### LLM configuration (no code changes — stock marimo)
+
+`~/.config/marimo/marimo.toml` points both AI roles at local Ollama
+(`[ai.ollama] base_url = "http://127.0.0.1:11434/v1"`):
+`ai.models.chat_model` / `edit_model` = `ollama/qwen2.5-coder:7b`,
+`ai.models.autocomplete_model` = `ollama/qwen2.5-coder:1.5b-base` with
+`completion.copilot = "custom"` for inline (FIM) completion.
+
+Fork tests: `tests/_fork/` (`python -m pytest tests/_fork -q`).
+
 ## Branch layout
 
 | Branch              | Purpose                                                        |
