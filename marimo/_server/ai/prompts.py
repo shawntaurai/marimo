@@ -314,7 +314,10 @@ def _common_chat_sections(
     include_other_code: str | None,
 ) -> str:
     """Trailing sections shared by every chat mode."""
-    out = ""
+    # Fork: describe the session-mounted data source, if any
+    from marimo._fork.schema_context import get_mounted_schema_section
+
+    out = get_mounted_schema_section()
     if custom_rules and custom_rules.strip():
         out += f"\n\n## Additional rules:\n{custom_rules}"
     if include_other_code:
