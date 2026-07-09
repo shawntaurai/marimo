@@ -581,8 +581,11 @@ extend-exclude = [
 ]
 
 
+# Fork: these [tool.marimo.*] sections apply to notebooks opened from inside
+# this repo (project config overrides user config). Upstream's dev defaults
+# assumed uv and polars; this fork uses pip and pandas.
 [tool.marimo.ai]
-rules = "- prefer polars over pandas\n- make charts using altair"
+rules = "- prefer pandas for dataframes\n- make charts using altair"
 
 [tool.marimo.save]
 autosave_delay = 1000
@@ -605,7 +608,7 @@ std_stream_max_bytes = 2_000_000
 dotenv = [".env"]
 
 [tool.marimo.package_management]
-manager = "uv"
+manager = "pip"
 
 [tool.marimo.keymap]
 vimrc = "configs/.vimrc"
