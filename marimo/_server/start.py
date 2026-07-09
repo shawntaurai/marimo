@@ -44,7 +44,9 @@ from marimo._utils.net import find_free_port
 if TYPE_CHECKING:
     from marimo._cli.tips import CliTip
 
-DEFAULT_PORT = 2718
+# Fork: stock marimo uses 2718; marimoSH05 defaults to 2805 so the two
+# never collide. Override without code changes via MARIMO_PORT.
+DEFAULT_PORT = int(os.environ.get("MARIMO_PORT", "2805"))
 
 
 def _execute_startup_command(
