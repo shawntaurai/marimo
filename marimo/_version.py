@@ -4,7 +4,11 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("marimo")
+    # Fork: the distribution is named marimoSH05 (see pyproject.toml)
+    __version__ = version("marimoSH05")
 except PackageNotFoundError:
-    # package is not installed
-    __version__ = "unknown"
+    try:
+        __version__ = version("marimo")
+    except PackageNotFoundError:
+        # package is not installed
+        __version__ = "unknown"

@@ -3,7 +3,12 @@ requires = ["uv_build>=0.8.3,<0.12.0"]
 build-backend = "uv_build"
 
 [project]
-name = "marimo"
+# Fork: distribution renamed so `pip install marimoSH05` / `pip show marimoSH05`
+# can never be confused with stock marimo. The import package and CLI are
+# still `marimo` (module-name is pinned under [tool.uv.build-backend]).
+# Keep version identical to the upstream release this fork is based on —
+# scripts/fork_refresh_static.py uses it to fetch matching frontend assets.
+name = "marimoSH05"
 version = "0.23.14"
 description = "A library for making reactive notebooks and apps"
 # We try to keep dependencies to a minimum, to avoid conflicts with
@@ -77,6 +82,7 @@ classifiers = [
 
 [project.scripts]
 marimo = "marimo._cli.cli:main"
+marimoSH05 = "marimo._cli.cli:main"
 
 [project.urls]
 homepage = "https://github.com/marimo-team/marimo"

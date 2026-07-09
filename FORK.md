@@ -3,6 +3,26 @@
 This is a customization fork of [marimo-team/marimo](https://github.com/marimo-team/marimo)
 for an internal analytics tool (dashboards + scheduled reports).
 
+## Installation
+
+The distribution is named **marimoSH05** so it can never be confused with
+stock marimo (`pip show marimoSH05`). The import package and CLI are still
+`marimo` (plus a `marimoSH05` CLI alias).
+
+```bash
+# on this machine (editable, the checkout IS the install)
+pip install -e . --no-deps
+
+# on other machines, straight from the fork repo
+pip install "marimoSH05 @ git+https://github.com/shawntaurai/marimo.git@main"
+
+# or build a wheel to host internally
+pip wheel . --no-deps -w dist/
+```
+
+Stock `marimo` from PyPI must NOT be installed alongside — both ship the
+`marimo` module and would overwrite each other.
+
 ## Fork features
 
 ### Session-level data source mounting
