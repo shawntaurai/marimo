@@ -43,6 +43,14 @@ capped via `MARIMO_SCHEMA_CONTEXT_MAX_CHARS` (default 12000). Code:
 `ai.models.autocomplete_model` = `ollama/qwen2.5-coder:1.5b-base` with
 `completion.copilot = "custom"` for inline (FIM) completion.
 
+**Switching models at will:** pull any model (`ollama pull mistral:7b`),
+run `python scripts/fork_sync_ollama_models.py`, refresh the browser — the
+model appears in the chat panel's picker. The script scans the local Ollama
+daemon and every `[ai.custom_providers.*]` pointing at an Ollama server
+(e.g. the LAN box `ollama_2`), skipping unreachable hosts and embedding
+models. Defaults stay whatever `ai.models.*` says; the picker switches
+per-conversation.
+
 Fork tests: `tests/_fork/` (`python -m pytest tests/_fork -q`).
 
 ## Branch layout
