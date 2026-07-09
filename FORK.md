@@ -55,12 +55,14 @@ Fork tests: `tests/_fork/` (`python -m pytest tests/_fork -q`).
 
 ## Branch layout
 
-| Branch              | Purpose                                                        |
-| ------------------- | -------------------------------------------------------------- |
-| `main`              | Pristine mirror of `upstream/main`. **Never commit here.**     |
-| `shawntauraiBranch` | All custom work. Rebased onto upstream **release tags**.       |
+| Branch              | Purpose                                                          |
+| ------------------- | ---------------------------------------------------------------- |
+| `main`              | Stable branch of the internal tool (PRs from the work branch).   |
+| `shawntauraiBranch` | All custom work. Rebased onto upstream **release tags**.         |
 
 Remotes: `origin` = shawntaurai/marimo, `upstream` = marimo-team/marimo.
+The pristine upstream state lives in the `upstream/main` remote-tracking
+ref and the release tags — no local mirror branch is kept.
 
 ## Why sync to release tags, not upstream/main
 
@@ -80,25 +82,23 @@ with a main-line commit. Rebasing onto the tag is still correct.
 # 1. Fetch upstream and its tags
 git fetch upstream --tags
 
-# 2. Update the pristine mirror
-git checkout main
-git merge --ff-only upstream/main
-git push origin main
-
-# 3. Rebase custom work onto the new release tag
+# 2. Rebase custom work onto the new release tag
 git checkout shawntauraiBranch
 git rebase 0.23.XX          # the new tag
 # resolve conflicts if any; `git rerere` is enabled, so resolutions
 # you make once are replayed automatically next time
 
-# 4. Refresh prebuilt frontend assets from the matching PyPI wheel
+# 3. Refresh prebuilt frontend assets from the matching PyPI wheel
 python scripts/fork_refresh_static.py 0.23.XX
 
-# 5. Reinstall (editable install usually survives, but metadata may change)
+# 4. Reinstall (editable install usually survives, but metadata may change)
 pip install -e . --no-deps
 
-# 6. Push (rebase rewrites history, so force-with-lease)
+# 5. Push (rebase rewrites history, so force-with-lease)
 git push origin shawntauraiBranch --force-with-lease
+
+# 6. Ship to main via a PR from shawntauraiBranch (or merge locally
+#    and push). main only ever advances by merging the work branch.
 ```
 
 ## Rebase vs merge: why rebase
