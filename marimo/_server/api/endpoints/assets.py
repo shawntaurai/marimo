@@ -337,6 +337,11 @@ async def index(request: Request) -> Response:
             detail=_missing_index_html_detail(),
         )
 
+    # Fork: present the app as dedomena (see marimo/_fork/branding.py)
+    from marimo._fork.branding import brand_html
+
+    html = brand_html(html)
+
     if not file_key:
         # We don't know which file to use, so we need to render a homepage
         LOGGER.debug("No file key provided, serving homepage")

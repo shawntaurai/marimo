@@ -4,8 +4,8 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    # Fork: the distribution is named marimoSH05 (see pyproject.toml)
-    __version__ = version("marimoSH05")
+    # Fork: the distribution is named dedomena (see pyproject.toml)
+    __version__ = version("dedomena")
 except PackageNotFoundError:
     try:
         __version__ = version("marimo")

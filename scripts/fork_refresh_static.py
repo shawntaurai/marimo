@@ -69,6 +69,14 @@ def main() -> None:
 
     print(f"Done: assets refreshed from marimo=={version}")
 
+    # Re-apply dedomena branding, which the fresh assets just overwrote
+    import subprocess
+
+    subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "fork_rebrand_static.py")],
+        check=True,
+    )
+
 
 if __name__ == "__main__":
     main()

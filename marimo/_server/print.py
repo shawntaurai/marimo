@@ -64,9 +64,11 @@ def print_startup(
 
 
 def print_shutdown() -> None:
+    from marimo._fork.branding import APP_NAME
+
     print_()
     print_tabbed(
-        "\033[32mThanks for using marimo!\033[0m {}".format(_utf8("🌊🍃"))
+        f"\033[32mThanks for using {APP_NAME}!\033[0m {_utf8('🌊🍃')}"
     )
     print_()
 

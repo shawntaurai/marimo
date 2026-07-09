@@ -157,7 +157,10 @@ def home_page_template(
     asset_url: str | None = None,
 ) -> str:
     html = html.replace("{{ base_url }}", base_url)
-    html = html.replace("{{ title }}", "marimo")
+    # Fork: brand the home page tab title (see marimo/_fork/branding.py)
+    from marimo._fork.branding import APP_NAME
+
+    html = html.replace("{{ title }}", APP_NAME)
     html = html.replace("{{ filename }}", "")
 
     # TODO(Trevor): Legacy, required by VS Code plugin. Remove when plugin is updated (see frontend/index.html)
