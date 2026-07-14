@@ -159,8 +159,12 @@ def home_page_template(
     html = html.replace("{{ base_url }}", base_url)
     # Fork: brand the home page tab title (see marimo/_fork/branding.py)
     from marimo._fork.branding import APP_NAME
+    from marimo._fork.updater import inject_update_button
 
     html = html.replace("{{ title }}", APP_NAME)
+    # Fork: show an update button when a new upstream release is available
+    if mode == SessionMode.EDIT:
+        html = inject_update_button(html)
     html = html.replace("{{ filename }}", "")
 
     # TODO(Trevor): Legacy, required by VS Code plugin. Remove when plugin is updated (see frontend/index.html)
