@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 from marimo import _loggers
@@ -32,6 +33,26 @@ _CACHE_TTL_SECONDS = 300
 # override with MARIMO_SCHEMA_CONTEXT_MAX_CHARS.
 _DEFAULT_MAX_CHARS = 12_000
 
+# Optional user-supplied ERD describing the logical data model. Critical for
+# databases that declare no foreign keys: introspection can't see relationships
+# that exist only in documentation. Must be a text format the LLM can read.
+ERD_ENV_VAR = "MARIMO_DATA_SOURCE_ERD"
+_ERD_DEFAULT_MAX_CHARS = 8_000
+_ERD_TEXT_SUFFIXES = {
+    ".mmd",
+    ".mermaid",
+    ".dbml",
+    ".puml",
+    ".plantuml",
+    ".md",
+    ".markdown",
+    ".txt",
+    ".sql",
+    ".json",
+    ".yaml",
+    ".yml",
+}
+
 _SYSTEM_SCHEMAS = {
     "information_schema",
     "pg_catalog",
@@ -43,13 +64,15 @@ _cache: tuple[float, str] | None = None
 
 
 def get_mounted_schema_section() -> str:
-    """Prompt section describing the mounted data source, or "" if none.
+    """Prompt sections for the mounted data source and/or its ERD, or "".
 
     Never raises; introspection failures degrade to an empty section.
+    The ERD file is re-read on every call (cheap), so edits to it apply
+    to the next chat message without restarting the server.
     """
     global _cache
     if _cache is not None and time.time() - _cache[0] < _CACHE_TTL_SECONDS:
-        return _cache[1]
+        return _cache[1] + _erd_section()
 
     section = ""
     try:
@@ -65,7 +88,63 @@ def get_mounted_schema_section() -> str:
             exc_info=e,
         )
     _cache = (time.time(), section)
-    return section
+    return section + _erd_section()
+
+
+def set_erd(path: str) -> None:
+    """Record the ERD path so child (kernel) processes inherit it."""
+    os.environ[ERD_ENV_VAR] = path
+
+
+def _erd_section() -> str:
+    """Prompt section with the user-supplied ERD, or "" if none/unusable."""
+    spec = os.environ.get(ERD_ENV_VAR, "").strip()
+    if not spec:
+        return ""
+    try:
+        path = Path(spec)
+        if not path.exists():
+            LOGGER.error("ERD file not found: %s", spec)
+            return ""
+        suffix = path.suffix.lower()
+        if suffix not in _ERD_TEXT_SUFFIXES:
+            LOGGER.error(
+                "ERD file %s is not a supported text format %s. Images "
+                "cannot be read by the SQL model - export the diagram as "
+                "Mermaid (.mmd), DBML, PlantUML, markdown, or SQL DDL.",
+                spec,
+                sorted(_ERD_TEXT_SUFFIXES),
+            )
+            return ""
+
+        text = path.read_text(encoding="utf-8", errors="replace").strip()
+        if not text:
+            return ""
+        max_chars = int(
+            os.environ.get("MARIMO_ERD_MAX_CHARS", _ERD_DEFAULT_MAX_CHARS)
+        )
+        truncated = ""
+        if len(text) > max_chars:
+            text = text[:max_chars]
+            truncated = "\n... (ERD truncated)"
+
+        fence = (
+            "mermaid" if suffix in (".mmd", ".mermaid") else suffix.lstrip(".")
+        )
+        return (
+            "\n\n<data_model_erd>\n"
+            "The following entity-relationship diagram documents the "
+            "logical data model, including relationships that may NOT be "
+            "declared as database constraints. When translating questions "
+            "into SQL, derive joins from these relationships (they take "
+            "precedence over guessing; combine them with the introspected "
+            "schema above if present).\n\n"
+            f"```{fence}\n{text}\n```{truncated}\n"
+            "</data_model_erd>"
+        )
+    except Exception as e:
+        LOGGER.warning("Failed to read ERD file for AI context: %s", e)
+        return ""
 
 
 def _build_section(schema_text: str) -> str:

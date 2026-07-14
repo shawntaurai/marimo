@@ -67,6 +67,27 @@ capped via `MARIMO_SCHEMA_CONTEXT_MAX_CHARS` (default 12000). Code:
 `marimo/_fork/schema_context.py`; hook in `marimo/_server/ai/prompts.py`
 (`_common_chat_sections`).
 
+### ERD context (`--erd`)
+
+Many production databases declare no foreign keys, so introspection can't
+see how tables relate. Supply the documented data model at launch:
+
+```bash
+dedomena edit report.py \
+  --data-source postgresql://user:pw@host/db \
+  --erd ./docs/data_model.mmd
+```
+
+The ERD must be a **text** format the LLM can read: Mermaid `erDiagram`
+(`.mmd`), DBML, PlantUML, markdown, or SQL DDL — image exports are
+rejected with a log message. The file's contents are injected into every
+chat prompt in a `<data_model_erd>` section with instructions to derive
+joins from it; it is re-read on every message, so edits apply without a
+restart. Env var: `MARIMO_DATA_SOURCE_ERD`; size cap
+`MARIMO_ERD_MAX_CHARS` (default 8000). Verified: with zero FK constraints
+and mismatched join-column names, the model produced correct joins from
+the ERD alone.
+
 ### LLM configuration (no code changes — stock marimo)
 
 `~/.config/marimo/marimo.toml` points both AI roles at local Ollama

@@ -448,6 +448,18 @@ class _OptionalValueOption(click.Option):
         "default engine for mo.sql()."
     ),
 )
+@click.option(
+    "--erd",
+    default=None,
+    type=str,
+    help=(
+        "Fork: path to a textual ERD of the data model (Mermaid .mmd, "
+        "DBML, PlantUML, markdown, or SQL DDL). Injected into AI chat "
+        "context so natural-language questions use the documented "
+        "relationships — essential when the database declares no foreign "
+        "keys. Image files are not supported."
+    ),
+)
 @click.argument(
     "name",
     required=False,
@@ -479,6 +491,7 @@ def edit(
     timeout: float | None,
     session_ttl: int | None,
     data_source: str | None,
+    erd: str | None,
     name: str | None,
     args: tuple[str, ...],
 ) -> None:
@@ -488,6 +501,10 @@ def edit(
         from marimo._fork.datasource_mount import set_data_source
 
         set_data_source(data_source)
+    if erd is not None:
+        from marimo._fork.schema_context import set_erd
+
+        set_erd(erd)
 
     pass_on_stdin = token_password_file == "-"
     # We support unix-style piping, e.g. cat notebook.py | marimo edit
@@ -1137,6 +1154,18 @@ Example:
         "default engine for mo.sql()."
     ),
 )
+@click.option(
+    "--erd",
+    default=None,
+    type=str,
+    help=(
+        "Fork: path to a textual ERD of the data model (Mermaid .mmd, "
+        "DBML, PlantUML, markdown, or SQL DDL). Injected into AI chat "
+        "context so natural-language questions use the documented "
+        "relationships — essential when the database declares no foreign "
+        "keys. Image files are not supported."
+    ),
+)
 @click.pass_context
 @click.argument(
     "name",
@@ -1167,6 +1196,7 @@ def run(
     asset_url: str | None,
     show_tracebacks: bool | None,
     data_source: str | None,
+    erd: str | None,
     name: str,
     args: tuple[str, ...],
 ) -> None:
@@ -1174,6 +1204,10 @@ def run(
         from marimo._fork.datasource_mount import set_data_source
 
         set_data_source(data_source)
+    if erd is not None:
+        from marimo._fork.schema_context import set_erd
+
+        set_erd(erd)
 
     from marimo._cli.sandbox import (
         SandboxMode,
