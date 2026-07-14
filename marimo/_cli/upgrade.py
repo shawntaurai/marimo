@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from marimo import _loggers
-from marimo._cli.install_hints import get_upgrade_commands
 from marimo._cli.print import echo, green, orange
 from marimo._config.cli_state import (
     MarimoCLIState,
@@ -28,16 +27,19 @@ LOGGER = _loggers.marimo_logger()
 
 
 def print_latest_version(current_version: str, state: MarimoCLIState) -> None:
-    message = f"Update available {current_version} → {state.latest_version}"
+    message = (
+        f"Upstream marimo release available: "
+        f"{current_version} → {state.latest_version}"
+    )
     echo(orange(message))
-    upgrade_commands = get_upgrade_commands("marimo")
-    if upgrade_commands:
-        if len(upgrade_commands) == 1:
-            echo(f"Run {green(upgrade_commands[0])} to upgrade.")
-        else:
-            primary_command = green(upgrade_commands[0])
-            fallback_command = green(upgrade_commands[1])
-            echo(f"Run {primary_command} or {fallback_command} to upgrade.")
+    # Fork: never suggest `pip install --upgrade marimo` here — that would
+    # replace this fork (dedomena) with stock marimo. Upgrades go through
+    # the sync workflow instead (see FORK.md).
+    echo(
+        "To pick it up, sync the fork: rebase onto the "
+        f"{green(str(state.latest_version))} tag, then run "
+        f"{green('python scripts/fork_refresh_static.py')} (see FORK.md)."
+    )
 
     if state.notices:
         echo()
