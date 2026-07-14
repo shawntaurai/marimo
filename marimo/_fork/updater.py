@@ -98,7 +98,7 @@ def start_sync() -> bool:
     with _lock:
         if _state["sync_status"] == "running":
             return False
-        _state.update(sync_status="running", detail="Starting sync…", log=[])
+        _state.update(sync_status="running", detail="Starting sync...", log=[])
     threading.Thread(target=_run_sync, daemon=True).start()
     return True
 
@@ -137,10 +137,10 @@ def _run_sync() -> None:
             )
             return
 
-        _set("Fetching upstream releases…")
+        _set("Fetching upstream releases...")
         fetch = _git("fetch", "upstream", "--tags")
         if fetch.returncode != 0:
-            _set(f"git fetch failed: {fetch.stderr.strip()[:300]}", "error")
+            _set(f"git fetch failed: {fetch.stderr.strip()[-300:]}", "error")
             return
 
         target = get_latest_upstream_version()
@@ -151,7 +151,7 @@ def _run_sync() -> None:
             _set(f"Upstream tag {target} not found after fetch.", "error")
             return
 
-        _set(f"Rebasing fork commits onto {target}…")
+        _set(f"Rebasing fork commits onto {target}...")
         rebase = _git("rebase", target)
         if rebase.returncode != 0:
             _git("rebase", "--abort")
@@ -163,7 +163,7 @@ def _run_sync() -> None:
             )
             return
 
-        _set(f"Downloading {target} frontend assets from PyPI…")
+        _set(f"Downloading {target} frontend assets from PyPI...")
         refresh = subprocess.run(
             [
                 sys.executable,
@@ -178,12 +178,12 @@ def _run_sync() -> None:
         if refresh.returncode != 0:
             _set(
                 "Asset refresh failed: "
-                f"{(refresh.stderr or refresh.stdout).strip()[:300]}",
+                f"{(refresh.stderr or refresh.stdout).strip()[-400:]}",
                 "error",
             )
             return
 
-        _set("Pushing synced branch…")
+        _set("Pushing synced branch...")
         push = _git("push", "origin", "HEAD", "--force-with-lease")
         if push.returncode != 0:
             _set(f"(push skipped: {push.stderr.strip()[:200]})")
