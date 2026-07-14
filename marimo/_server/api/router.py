@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from marimo._fork.api import router as fork_router
 from marimo._server.api.endpoints.ai import router as ai_router
 from marimo._server.api.endpoints.assets import router as assets_router
 from marimo._server.api.endpoints.cache import router as cache_router
@@ -31,7 +32,6 @@ from marimo._server.api.endpoints.sql import router as sql_router
 from marimo._server.api.endpoints.storage import router as storage_router
 from marimo._server.api.endpoints.terminal import router as terminal_router
 from marimo._server.api.endpoints.ws_endpoint import router as ws_router
-from marimo._fork.api import router as fork_router
 from marimo._server.router import APIRouter
 
 if TYPE_CHECKING:
