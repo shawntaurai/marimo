@@ -23,6 +23,19 @@ pip wheel . --no-deps -w dist/
 Stock `marimo` from PyPI must NOT be installed alongside — both ship the
 `marimo` module and would overwrite each other.
 
+## Self-update button
+
+When upstream marimo publishes a new release, the home page (edit mode)
+shows an **Update dedomena X → Y** button (bottom-right). Clicking it runs
+the sync workflow server-side — fetch upstream tags, rebase the fork's
+commits onto the new release tag (all fork features are preserved by
+construction), refresh + re-brand frontend assets from the matching PyPI
+wheel, push — and then asks for a server restart. A rebase conflict aborts
+cleanly (nothing changes) and points at the manual workflow below; once a
+conflict is resolved manually, rerere replays the resolution on future
+updates automatically. Endpoints: `GET/POST /api/fork/update/{status,start}`
+(edit scope). Code: `marimo/_fork/updater.py`, `marimo/_fork/api.py`.
+
 ## Branding
 
 The app presents itself as **dedomena**: browser tab title, favicon/logo
