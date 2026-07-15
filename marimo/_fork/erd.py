@@ -113,8 +113,9 @@ def set_erd(path: str) -> None:
 
 def get_erd_path() -> Optional[str]:
     spec = os.environ.get(ERD_ENV_VAR, "").strip()
-    if not spec:
-        # fall back to the persisted mount (survives server restarts)
+    if not spec and not os.environ.get("PYTEST_CURRENT_TEST"):
+        # fall back to the persisted mount (survives server restarts);
+        # never inside tests, which opt in via the env var instead
         from marimo._fork.datasource_mount import load_persisted_mount
 
         spec = load_persisted_mount().get("erd", "").strip()

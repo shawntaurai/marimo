@@ -207,3 +207,28 @@ def test_mask_secret() -> None:
     masked = _mask_secret("postgresql://postgres:tbJbC5%40%40vM@host:5432/db")
     assert "tbJbC5" not in masked
     assert masked == "postgresql://postgres:****@host:5432/db"
+
+
+def test_instance_manual_injected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from marimo._fork import instance_manual
+
+    manual = tmp_path / "manual.md"
+    manual.write_text("# Manual\nAlways use dateinvoiced.", encoding="utf-8")
+    monkeypatch.setenv(instance_manual.MANUAL_ENV_VAR, str(manual))
+    monkeypatch.setattr(instance_manual, "_cache", None)
+
+    section = instance_manual.get_manual_section()
+    assert "<instance_operating_manual>" in section
+    assert "Always use dateinvoiced." in section
+
+
+def test_instance_manual_absent_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from marimo._fork import instance_manual
+
+    monkeypatch.delenv(instance_manual.MANUAL_ENV_VAR, raising=False)
+    monkeypatch.setattr(instance_manual, "_cache", None)
+    assert instance_manual.get_manual_section() == ""

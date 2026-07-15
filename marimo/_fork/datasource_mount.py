@@ -110,8 +110,9 @@ def get_mounted_connection() -> Optional[Any]:
     global _mounted_connection
     if _mounted_connection is _UNRESOLVED:
         spec = os.environ.get(DATA_SOURCE_ENV_VAR, "").strip()
-        if not spec:
-            # fall back to the persisted mount (survives server restarts)
+        if not spec and not os.environ.get("PYTEST_CURRENT_TEST"):
+            # fall back to the persisted mount (survives server restarts);
+            # never inside tests, which opt in via the env var instead
             spec = load_persisted_mount().get("data_source", "").strip()
             if spec:
                 os.environ[DATA_SOURCE_ENV_VAR] = spec

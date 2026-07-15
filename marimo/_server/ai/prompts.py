@@ -206,9 +206,11 @@ def get_refactor_or_insert_notebook_cell_system_prompt(
 
     # Fork: cell generation must know the mounted data source too,
     # otherwise it hallucinates table names (see marimo/_fork)
+    from marimo._fork.instance_manual import get_manual_section
     from marimo._fork.schema_context import get_mounted_schema_section
 
     system_prompt += get_mounted_schema_section(question=user_prompt)
+    system_prompt += get_manual_section()
 
     if context:
         system_prompt += format_context(context)
@@ -323,9 +325,11 @@ def _common_chat_sections(
 ) -> str:
     """Trailing sections shared by every chat mode."""
     # Fork: describe the session-mounted data source, if any
+    from marimo._fork.instance_manual import get_manual_section
     from marimo._fork.schema_context import get_mounted_schema_section
 
     out = get_mounted_schema_section(question=question)
+    out += get_manual_section()
     if custom_rules and custom_rules.strip():
         out += f"\n\n## Additional rules:\n{custom_rules}"
     if include_other_code:
