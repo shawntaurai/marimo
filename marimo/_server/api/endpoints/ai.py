@@ -1,7 +1,7 @@
 # Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from starlette.authentication import requires
 from starlette.exceptions import HTTPException
@@ -150,6 +150,7 @@ async def ai_completion(
         selected_text=body.selected_text,
         other_cell_codes=body.include_other_code,
         context=body.context,
+        user_prompt=body.prompt,
     )
 
     model = get_edit_model(ai_config)
@@ -212,6 +213,7 @@ async def ai_chat(
         include_other_code=body.include_other_code,
         mode=mode,
         session_id=session_id,
+        question=_last_user_question(body.ui_messages),
     )
 
     max_tokens = get_max_tokens(config)
@@ -252,6 +254,25 @@ async def ai_chat(
         additional_tools=additional_tools,
         stream_options=stream_options,
     )
+
+
+def _last_user_question(ui_messages: list[Any]) -> str | None:
+    """Text of the most recent user message, for ERD-focused context."""
+    try:
+        for message in reversed(ui_messages or []):
+            if getattr(message, "role", None) != "user":
+                continue
+            parts = getattr(message, "parts", None) or []
+            texts = [
+                getattr(part, "text", "")
+                for part in parts
+                if getattr(part, "type", "") == "text"
+            ]
+            if texts:
+                return " ".join(t for t in texts if t)
+    except Exception:
+        pass
+    return None
 
 
 @router.post("/inline_completion")

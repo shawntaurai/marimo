@@ -104,10 +104,45 @@ def test_small_pgerd_renders_inline(tmp_path: Path) -> None:
     assert "orders.partner_id -> partners.partner_id" in body
 
 
-def test_large_pgerd_defers_to_tool(tmp_path: Path) -> None:
+def test_large_pgerd_defers_to_tool_with_inventory(tmp_path: Path) -> None:
     index = erd.reload_erd(str(_write_pgerd(tmp_path)))
     body = erd.render_for_prompt(index, max_chars=10)
     assert "get_erd_relationships" in body
+    assert "NEVER invent table or column names" in body
+    # real table names are listed so the model can't hallucinate others
+    assert "orders" in body
+
+
+def test_cell_generation_prompt_includes_mounted_context(
+    tmp_path: Path,
+) -> None:
+    from marimo._fork import datasource_mount, schema_context
+
+    erd_file = tmp_path / "model.pgerd"
+    erd_file.write_text(json.dumps(_pgerd_doc()), encoding="utf-8")
+    erd.reload_erd(str(erd_file))
+    saved = os.environ.pop(datasource_mount.DATA_SOURCE_ENV_VAR, None)
+    schema_context._cache = None
+    try:
+        from marimo._server.ai.prompts import (
+            get_refactor_or_insert_notebook_cell_system_prompt,
+        )
+
+        prompt = get_refactor_or_insert_notebook_cell_system_prompt(
+            language="python",
+            is_insert=False,
+            support_multiple_cells=True,
+            custom_rules=None,
+            cell_code=None,
+            selected_text=None,
+            other_cell_codes=None,
+            context=None,
+        )
+        assert "<data_model_erd>" in prompt
+    finally:
+        schema_context._cache = None
+        if saved is not None:
+            os.environ[datasource_mount.DATA_SOURCE_ENV_VAR] = saved
 
 
 def test_lookup_tool_finds_relationships(tmp_path: Path) -> None:

@@ -49,7 +49,7 @@ _SYSTEM_SCHEMAS = {
 _cache: tuple[float, str] | None = None
 
 
-def get_mounted_schema_section() -> str:
+def get_mounted_schema_section(question: str | None = None) -> str:
     """Prompt sections for the mounted data source and/or its ERD, or "".
 
     When the user supplies an ERD (`--erd`), it is the source of truth for
@@ -58,13 +58,17 @@ def get_mounted_schema_section() -> str:
     rows) for any column details it needs. Set
     `MARIMO_ERD_REPLACES_SCHEMA=0` to include both.
 
+    When `question` is given (the user's prompt), an ERD excerpt focused
+    on that question — matching tables with columns and join paths — is
+    appended so one-shot generation has real names to work with.
+
     Never raises; introspection failures degrade to an empty section.
     The ERD file is re-read on every call (cheap), so edits to it apply
     to the next chat message without restarting the server.
     """
     erd = _erd_section()
     if erd and os.environ.get("MARIMO_ERD_REPLACES_SCHEMA", "1") != "0":
-        return _erd_mode_header() + erd
+        return _erd_mode_header() + erd + _focused_section(question)
 
     global _cache
     if _cache is not None and time.time() - _cache[0] < _CACHE_TTL_SECONDS:
@@ -133,6 +137,21 @@ def _dialect_name(connection: Any) -> str:
     except ModuleNotFoundError:
         pass
     return "unknown"
+
+
+def _focused_section(question: str | None) -> str:
+    if not question:
+        return ""
+    try:
+        from marimo._fork.erd import focused_context
+
+        excerpt = focused_context(question)
+        if not excerpt:
+            return ""
+        return f"\n\n<erd_excerpt_for_this_question>\n{excerpt}\n</erd_excerpt_for_this_question>"
+    except Exception as e:
+        LOGGER.warning("Failed to build focused ERD excerpt: %s", e)
+        return ""
 
 
 def _erd_section() -> str:

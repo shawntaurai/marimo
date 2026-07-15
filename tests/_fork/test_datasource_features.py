@@ -269,6 +269,8 @@ def test_erd_edits_apply_without_cache_restart(tmp_path: Path) -> None:
     assert "goods_received" in schema_context.get_mounted_schema_section()
 
     erd.write_text("erDiagram\n    a ||--o{ b : renamed_edge\n")
+    # the ERD cache is keyed on mtime; simulate a later save
+    os.utime(erd, (erd.stat().st_atime, erd.stat().st_mtime + 5))
     assert "renamed_edge" in schema_context.get_mounted_schema_section()
 
 

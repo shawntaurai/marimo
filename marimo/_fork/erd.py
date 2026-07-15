@@ -239,13 +239,164 @@ def render_for_prompt(index: ErdIndex, max_chars: int) -> str:
             f"`local_table.column -> referenced_table.column`:\n" + body
         )
 
-    # Too large to inline: summarize and defer to the lookup tool.
-    return (
+    # Too large to inline: ground the model with the real table inventory
+    # and defer relationship details to the lookup tool.
+    header = (
         f"The ERD describes {len(index.tables)} tables and "
-        f"{len(index.relationships)} relationships - far too many to list "
-        "here. To find how tables relate, call the `get_erd_relationships` "
-        "tool with keywords (e.g. ['invoice', 'bpartner']); it returns the "
-        "matching relationships and each matched table's columns. If the "
-        "tool is unavailable in this mode, query information_schema "
-        "instead."
+        f"{len(index.relationships)} relationships - too many to list "
+        "in full.\n"
+        "- NEVER invent table or column names. Only use tables from the "
+        "inventory below, and get their exact columns and join paths "
+        "first: call the `get_erd_relationships` tool with keywords "
+        "(e.g. ['invoice', 'bpartner']), or query "
+        "information_schema.columns when the tool is unavailable.\n\n"
+        "Table inventory, grouped as `prefix_: rest-of-name, ...` "
+        "(full table name = prefix_ + rest, e.g. `c_: invoice` is "
+        "`c_invoice`):\n"
     )
+    inventory = _grouped_table_names(
+        index.tables, budget=max(1000, max_chars - len(header))
+    )
+    return header + inventory
+
+
+# Words too generic to identify tables/columns
+_STOPWORDS = {
+    "give",
+    "show",
+    "get",
+    "list",
+    "find",
+    "all",
+    "the",
+    "and",
+    "for",
+    "from",
+    "with",
+    "that",
+    "this",
+    "these",
+    "those",
+    "which",
+    "what",
+    "who",
+    "how",
+    "many",
+    "much",
+    "between",
+    "during",
+    "within",
+    "each",
+    "per",
+    "top",
+    "highest",
+    "lowest",
+    "total",
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+}
+
+
+def focused_context(
+    question: str, max_tables: int = 8, max_chars: int = 5000
+) -> str:
+    """ERD excerpt relevant to a question: tables, columns, join paths.
+
+    Matches question words against table AND column names (business terms
+    often surface in column names, e.g. "sales" -> `salesrep_id`), then
+    renders the best-matching tables' column lists and the join paths
+    among them. Returns "" when nothing matches or no graph ERD is loaded.
+    """
+    import re
+
+    index = load_erd()
+    if index is None or not index.is_graph:
+        return ""
+
+    tokens = {
+        w.rstrip("s")
+        for w in re.findall(r"[a-zA-Z]{3,}", question.lower())
+        if w not in _STOPWORDS
+    }
+    tokens = {t for t in tokens if len(t) >= 3}
+    if not tokens:
+        return ""
+
+    # connectivity: transactional core tables are relationship hubs,
+    # while lookalike report/summary tables are leaves
+    degree: dict[str, int] = {}
+    for r in index.relationships:
+        degree[r.local_table] = degree.get(r.local_table, 0) + 1
+        degree[r.referenced_table] = degree.get(r.referenced_table, 0) + 1
+
+    scores: dict[str, float] = {}
+    for table, columns in index.tables.items():
+        name = table.lower()
+        column_text = " ".join(columns).lower()
+        name_hits = sum(1 for t in tokens if t in name)
+        column_hits = sum(column_text.count(t) for t in tokens)
+        if name_hits or column_hits:
+            import math
+
+            scores[table] = (
+                5.0 * name_hits
+                + min(column_hits, 5)
+                + math.log1p(degree.get(table, 0))
+            )
+    if not scores:
+        return ""
+
+    selected = [
+        t
+        for t, _ in sorted(scores.items(), key=lambda kv: -kv[1])[:max_tables]
+    ]
+    selected_set = set(selected)
+
+    lines = ["Tables most relevant to this question (from the ERD):"]
+    for table in selected:
+        columns = index.tables.get(table, [])
+        shown = ", ".join(columns[:40])
+        more = f", ... +{len(columns) - 40} more" if len(columns) > 40 else ""
+        lines.append(f"- {table}({shown}{more})")
+
+    joins = [
+        r.render()
+        for r in index.relationships
+        if r.local_table in selected_set and r.referenced_table in selected_set
+    ]
+    if joins:
+        lines.append("Join paths among them:")
+        lines.extend(f"- {j}" for j in joins[:30])
+
+    text = "\n".join(lines)
+    return text[:max_chars]
+
+
+def _grouped_table_names(tables: dict[str, list[str]], budget: int) -> str:
+    groups: dict[str, list[str]] = {}
+    for table in sorted(tables):
+        prefix, sep, rest = table.partition("_")
+        if sep:
+            groups.setdefault(f"{prefix}_", []).append(rest)
+        else:
+            groups.setdefault("(none)", []).append(table)
+
+    lines = [
+        f"{prefix}: {', '.join(names)}"
+        for prefix, names in sorted(groups.items())
+    ]
+    text = "\n".join(lines)
+    if len(text) > budget:
+        text = text[:budget].rsplit(",", 1)[0]
+        text += "\n... (inventory truncated; more tables exist - use the tool)"
+    return text

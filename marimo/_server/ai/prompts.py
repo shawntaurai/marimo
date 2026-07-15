@@ -114,6 +114,7 @@ def get_refactor_or_insert_notebook_cell_system_prompt(
     selected_text: str | None,
     other_cell_codes: str | None,
     context: AiCompletionContext | None,
+    user_prompt: str | None = None,
 ) -> str:
     if cell_code:
         system_prompt = f"Here's a {language} document from a Python notebook that I'm going to ask you to make an edit to.\n\n"
@@ -202,6 +203,12 @@ def get_refactor_or_insert_notebook_cell_system_prompt(
 
     if custom_rules and custom_rules.strip():
         system_prompt += f"\n\n## Additional rules:\n{custom_rules}"
+
+    # Fork: cell generation must know the mounted data source too,
+    # otherwise it hallucinates table names (see marimo/_fork)
+    from marimo._fork.schema_context import get_mounted_schema_section
+
+    system_prompt += get_mounted_schema_section(question=user_prompt)
 
     if context:
         system_prompt += format_context(context)
@@ -312,12 +319,13 @@ def _common_chat_sections(
     *,
     custom_rules: str | None,
     include_other_code: str | None,
+    question: str | None = None,
 ) -> str:
     """Trailing sections shared by every chat mode."""
     # Fork: describe the session-mounted data source, if any
     from marimo._fork.schema_context import get_mounted_schema_section
 
-    out = get_mounted_schema_section()
+    out = get_mounted_schema_section(question=question)
     if custom_rules and custom_rules.strip():
         out += f"\n\n## Additional rules:\n{custom_rules}"
     if include_other_code:
@@ -450,6 +458,7 @@ def get_chat_system_prompt(
     include_other_code: str,
     mode: CopilotMode,
     session_id: SessionId,
+    question: str | None = None,
 ) -> str:
     # Code mode runs against the live kernel, so it leans on the marimo-pair
     # skill instead of the static notebook guide.
@@ -464,6 +473,7 @@ def get_chat_system_prompt(
         system_prompt += _common_chat_sections(
             custom_rules=custom_rules,
             include_other_code=None,  # code mode can inspect code
+            question=question,
         )
         system_prompt += "\nIf you are not aware of the current notebook code, inspect it first before answering any questions."
         return system_prompt
@@ -486,6 +496,7 @@ def get_chat_system_prompt(
     return system_prompt + _common_chat_sections(
         custom_rules=custom_rules,
         include_other_code=include_other_code,
+        question=question,
     )
 
 

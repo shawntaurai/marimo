@@ -585,7 +585,15 @@ extend-exclude = [
 # this repo (project config overrides user config). Upstream's dev defaults
 # assumed uv and polars; this fork uses pip and pandas.
 [tool.marimo.ai]
-rules = "- prefer pandas for dataframes\n- make charts using altair"
+rules = '''
+- prefer pandas for dataframes
+- make charts using altair
+- The mounted database is an Openbravo-style ERP. Business terms map to tables:
+  'sales' / 'revenue' = customer invoices: c_invoice (header: documentno, dateinvoiced, grandtotal, c_bpartner_id, issotrx = 'Y' for sales) with lines in c_invoiceline; join c_invoice.c_bpartner_id = c_bpartner.c_bpartner_id for the customer name (c_bpartner.name).
+  'orders' = c_order / c_orderline (issotrx = 'Y' sales orders, 'N' purchase orders).
+  'products' = m_product; 'shipments/receipts' = m_inout / m_inoutline.
+- Prefer these core transactional tables over report/summary lookalikes (hscr_*, custppr_*) unless the user asks for those reports by name.
+'''
 
 [tool.marimo.save]
 autosave_delay = 1000
