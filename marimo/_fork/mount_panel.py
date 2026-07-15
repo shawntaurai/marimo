@@ -78,9 +78,16 @@ MOUNT_PANEL_SNIPPET = """
         erd: panel.querySelector("#dm-erd").value,
       })}).then(function (r) { return r.json(); }).then(function (res) {
         var parts = [];
-        if ("data_source_ok" in res)
+        if ("data_source_ok" in res) {
           parts.push(res.data_source_ok ? "\\u2713 data source connected"
                                         : "\\u2717 data source failed");
+          if (res.data_source_ok) {
+            // don't leave credentials visible on screen
+            var ds = panel.querySelector("#dm-ds");
+            ds.value = "";
+            ds.placeholder = "connected (leave empty to keep)";
+          }
+        }
         if ("erd_ok" in res)
           parts.push(res.erd_ok
             ? "\\u2713 ERD loaded" + (res.erd_summary ? " (" + res.erd_summary + ")" : "")
