@@ -594,6 +594,8 @@ rules = '''
   'products' = m_product; 'shipments/receipts' = m_inout / m_inoutline.
 - Prefer these core transactional tables over report/summary lookalikes (hscr_*, custppr_*) unless the user asks for those reports by name.
 - marimo has NO `display` function and no `from marimo import display`. A cell displays its LAST EXPRESSION automatically: end the cell with the chart/dataframe object itself (e.g. the altair chart), never display(...), print(...) or plt.show().
+- 'store' / 'branch' = ad_org (columns: ad_org_id, name); join any table's ad_org_id = ad_org.ad_org_id to group per store.
+- 'discounts' = c_discount (name, discount = PERCENTAGE, not amount). Applied to invoices via c_invoiceline.c_invoice_discount_id -> c_invoice_discount (c_invoice_discount_id, c_invoice_id, c_discount_id - a link table with NO amount column). There is no stored discount amount: compute it as line amount x c_discount.discount / 100.
 '''
 
 [tool.marimo.save]

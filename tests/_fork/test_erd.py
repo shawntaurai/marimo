@@ -108,7 +108,7 @@ def test_large_pgerd_defers_to_tool_with_inventory(tmp_path: Path) -> None:
     index = erd.reload_erd(str(_write_pgerd(tmp_path)))
     body = erd.render_for_prompt(index, max_chars=10)
     assert "get_erd_relationships" in body
-    assert "NEVER invent table or column names" in body
+    assert "NEVER invent, abbreviate, or shorten table" in body
     # real table names are listed so the model can't hallucinate others
     assert "orders" in body
 

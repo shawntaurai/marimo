@@ -245,16 +245,16 @@ def render_for_prompt(index: ErdIndex, max_chars: int) -> str:
         f"The ERD describes {len(index.tables)} tables and "
         f"{len(index.relationships)} relationships - too many to list "
         "in full.\n"
-        "- NEVER invent table or column names. Only use tables from the "
-        "inventory below, and get their exact columns and join paths "
+        "- NEVER invent, abbreviate, or shorten table or column names. "
+        "Only use tables from the inventory below, copied verbatim "
+        "(never drop prefixes like c_ / m_ / ad_), and get their exact "
+        "columns and join paths "
         "first: call the `get_erd_relationships` tool with keywords "
         "(e.g. ['invoice', 'bpartner']), or query "
         "information_schema.columns when the tool is unavailable.\n\n"
-        "Table inventory, grouped as `prefix_: rest-of-name, ...` "
-        "(full table name = prefix_ + rest, e.g. `c_: invoice` is "
-        "`c_invoice`):\n"
+        "Table inventory (exact names):\n"
     )
-    inventory = _grouped_table_names(
+    inventory = _table_inventory(
         index.tables, budget=max(1000, max_chars - len(header))
     )
     return header + inventory
@@ -382,20 +382,8 @@ def focused_context(
     return text[:max_chars]
 
 
-def _grouped_table_names(tables: dict[str, list[str]], budget: int) -> str:
-    groups: dict[str, list[str]] = {}
-    for table in sorted(tables):
-        prefix, sep, rest = table.partition("_")
-        if sep:
-            groups.setdefault(f"{prefix}_", []).append(rest)
-        else:
-            groups.setdefault("(none)", []).append(table)
-
-    lines = [
-        f"{prefix}: {', '.join(names)}"
-        for prefix, names in sorted(groups.items())
-    ]
-    text = "\n".join(lines)
+def _table_inventory(tables: dict[str, list[str]], budget: int) -> str:
+    text = ", ".join(sorted(tables))
     if len(text) > budget:
         text = text[:budget].rsplit(",", 1)[0]
         text += "\n... (inventory truncated; more tables exist - use the tool)"
