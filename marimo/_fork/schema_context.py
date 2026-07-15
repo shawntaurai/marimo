@@ -66,13 +66,23 @@ _cache: tuple[float, str] | None = None
 def get_mounted_schema_section() -> str:
     """Prompt sections for the mounted data source and/or its ERD, or "".
 
+    When the user supplies an ERD (`--erd`), it is the source of truth for
+    the data model: the whole-database indexing is skipped and the model is
+    instructed to query the database itself (information_schema, sample
+    rows) for any column details it needs. Set
+    `MARIMO_ERD_REPLACES_SCHEMA=0` to include both.
+
     Never raises; introspection failures degrade to an empty section.
     The ERD file is re-read on every call (cheap), so edits to it apply
     to the next chat message without restarting the server.
     """
+    erd = _erd_section()
+    if erd and os.environ.get("MARIMO_ERD_REPLACES_SCHEMA", "1") != "0":
+        return _erd_mode_header() + erd
+
     global _cache
     if _cache is not None and time.time() - _cache[0] < _CACHE_TTL_SECONDS:
-        return _cache[1] + _erd_section()
+        return _cache[1] + erd
 
     section = ""
     try:
@@ -88,7 +98,55 @@ def get_mounted_schema_section() -> str:
             exc_info=e,
         )
     _cache = (time.time(), section)
-    return section + _erd_section()
+    return section + erd
+
+
+def _erd_mode_header() -> str:
+    """Light data-source header used when the ERD carries the data model."""
+    dialect = "unknown"
+    try:
+        connection = get_mounted_connection()
+        if connection is not None:
+            dialect = _dialect_name(connection)
+    except Exception:
+        pass
+    if dialect == "unknown":
+        return ""
+    return (
+        "\n\n<mounted_data_source>\n"
+        f"This session is bound to a primary data source "
+        f"(dialect: {dialect}).\n"
+        f"- It is available in the notebook as the variable "
+        f"`{DATA_SOURCE_VARIABLE}`.\n"
+        "- `mo.sql(...)` uses it as the default engine, so SQL cells run "
+        "against it directly; when an explicit engine is required use "
+        f"`engine={DATA_SOURCE_VARIABLE}`.\n"
+        "- The user supplied an ERD (next section) that documents the data "
+        "model; derive table names and joins from it.\n"
+        "- The full schema is intentionally NOT included. When you need "
+        "column names or types for a table, first run a small query "
+        "against the database (e.g. information_schema.columns for that "
+        "table, or SELECT * ... LIMIT 5), then write the final query.\n"
+        "</mounted_data_source>"
+    )
+
+
+def _dialect_name(connection: Any) -> str:
+    try:
+        import sqlalchemy
+
+        if isinstance(connection, sqlalchemy.engine.Engine):
+            return str(connection.dialect.name)
+    except ModuleNotFoundError:
+        pass
+    try:
+        import duckdb
+
+        if isinstance(connection, duckdb.DuckDBPyConnection):
+            return "duckdb"
+    except ModuleNotFoundError:
+        pass
+    return "unknown"
 
 
 def set_erd(path: str) -> None:
@@ -136,9 +194,8 @@ def _erd_section() -> str:
             "The following entity-relationship diagram documents the "
             "logical data model, including relationships that may NOT be "
             "declared as database constraints. When translating questions "
-            "into SQL, derive joins from these relationships (they take "
-            "precedence over guessing; combine them with the introspected "
-            "schema above if present).\n\n"
+            "into SQL, derive joins from these relationships — they take "
+            "precedence over guessing.\n\n"
             f"```{fence}\n{text}\n```{truncated}\n"
             "</data_model_erd>"
         )

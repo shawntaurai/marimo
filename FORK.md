@@ -100,13 +100,21 @@ dedomena edit report.py \
 
 The ERD must be a **text** format the LLM can read: Mermaid `erDiagram`
 (`.mmd`), DBML, PlantUML, markdown, or SQL DDL — image exports are
-rejected with a log message. The file's contents are injected into every
-chat prompt in a `<data_model_erd>` section with instructions to derive
-joins from it; it is re-read on every message, so edits apply without a
+rejected with a log message (export the diagram as text from your ERD
+tool). The file is re-read on every message, so edits apply without a
 restart. Env var: `MARIMO_DATA_SOURCE_ERD`; size cap
-`MARIMO_ERD_MAX_CHARS` (default 8000). Verified: with zero FK constraints
-and mismatched join-column names, the model produced correct joins from
-the ERD alone.
+`MARIMO_ERD_MAX_CHARS` (default 8000).
+
+**When an ERD is supplied it replaces whole-database indexing**: the AI
+context carries only the dialect, the `datasource` variable, and the ERD,
+plus instructions to query the database (information_schema / sample
+rows) for column details before writing the final SQL — designed for
+ERP-sized schemas where a full dump can't fit any model's context. Use
+the chat panel's **agent mode** so the model can actually run those
+exploration queries and fix its SQL from database errors. Set
+`MARIMO_ERD_REPLACES_SCHEMA=0` to include the introspected schema too.
+Verified against an 825-table production ERP: ERD joins + one
+information_schema lookup produced correct revenue-by-partner SQL.
 
 ### LLM configuration (no code changes — stock marimo)
 

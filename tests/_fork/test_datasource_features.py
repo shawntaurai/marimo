@@ -216,7 +216,7 @@ def test_erd_injected_into_prompt(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not HAS_DUCKDB, reason="duckdb not installed")
-def test_erd_combines_with_mounted_schema(tmp_path: Path) -> None:
+def test_erd_replaces_whole_schema_indexing(tmp_path: Path) -> None:
     seed = tmp_path / "erp_seed.sql"
     seed.write_text(ERP_SEED)
     _mount(str(seed))
@@ -227,10 +227,27 @@ def test_erd_combines_with_mounted_schema(tmp_path: Path) -> None:
     section = schema_context.get_mounted_schema_section()
     assert "<mounted_data_source>" in section
     assert "<data_model_erd>" in section
-    # ERD must come after the schema so its instructions can refer back
-    assert section.index("<mounted_data_source>") < section.index(
-        "<data_model_erd>"
-    )
+    # the ERD is the data model: no column-level schema dump ...
+    assert "po_number VARCHAR PK" not in section
+    # ... and the model is told to query the DB for details instead
+    assert "information_schema" in section
+    assert "dialect: duckdb" in section
+
+
+def test_erd_and_schema_combined_with_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MARIMO_ERD_REPLACES_SCHEMA", "0")
+    seed = tmp_path / "erp_seed.sql"
+    seed.write_text(ERP_SEED)
+    _mount(str(seed))
+    erd = tmp_path / "model.mmd"
+    erd.write_text(MERMAID_ERD)
+    schema_context.set_erd(str(erd))
+
+    section = schema_context.get_mounted_schema_section()
+    assert "po_number VARCHAR PK" in section
+    assert "<data_model_erd>" in section
 
 
 def test_erd_image_rejected_gracefully(tmp_path: Path) -> None:
