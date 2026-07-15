@@ -61,7 +61,11 @@ MOUNT_PANEL_SNIPPET = """
       "font-size:12px;opacity:.9'></div>";
     document.body.appendChild(panel);
     if (state) {
-      if (state.data_source) panel.querySelector("#dm-ds").value = state.data_source;
+      // the server masks credentials; show current value as a placeholder
+      // only - re-sending the masked string must never overwrite the mount
+      if (state.data_source)
+        panel.querySelector("#dm-ds").placeholder =
+          "connected: " + state.data_source + " (leave empty to keep)";
       if (state.erd) panel.querySelector("#dm-erd").value = state.erd;
       if (state.erd_summary)
         panel.querySelector("#dm-status").textContent = "ERD: " + state.erd_summary;

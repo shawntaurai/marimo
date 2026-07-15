@@ -48,9 +48,45 @@ _UNRESOLVED = object()
 _mounted_connection: Any = _UNRESOLVED
 
 
+def _persist_file() -> Path:
+    from marimo._config.utils import get_or_create_user_config_path
+
+    return (
+        Path(get_or_create_user_config_path()).parent / "dedomena_mount.json"
+    )
+
+
+def persist_mount(**updates: str) -> None:
+    """Remember mount settings across server restarts (plaintext JSON)."""
+    import json
+
+    try:
+        path = _persist_file()
+        data: dict[str, str] = {}
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+        data.update(updates)
+        path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    except Exception as e:
+        LOGGER.warning("Failed to persist mount settings: %s", e)
+
+
+def load_persisted_mount() -> dict[str, str]:
+    import json
+
+    try:
+        path = _persist_file()
+        if path.exists():
+            return dict(json.loads(path.read_text(encoding="utf-8")))
+    except Exception as e:
+        LOGGER.warning("Failed to read persisted mount settings: %s", e)
+    return {}
+
+
 def set_data_source(spec: str) -> None:
     """Record the session data source so child (kernel) processes inherit it."""
     os.environ[DATA_SOURCE_ENV_VAR] = spec
+    persist_mount(data_source=spec)
 
 
 def remount(spec: str) -> bool:
@@ -74,6 +110,11 @@ def get_mounted_connection() -> Optional[Any]:
     global _mounted_connection
     if _mounted_connection is _UNRESOLVED:
         spec = os.environ.get(DATA_SOURCE_ENV_VAR, "").strip()
+        if not spec:
+            # fall back to the persisted mount (survives server restarts)
+            spec = load_persisted_mount().get("data_source", "").strip()
+            if spec:
+                os.environ[DATA_SOURCE_ENV_VAR] = spec
         if not spec:
             _mounted_connection = None
         else:

@@ -47,8 +47,23 @@ INSERT INTO sales_invoices VALUES ('INV-9', 'GRV-55', '2026-06-10', 1500.00);
 
 
 @pytest.fixture(autouse=True)
-def reset_mount() -> Generator[None, None, None]:
-    """Isolate each test from the mount caches and env vars."""
+def reset_mount(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[None, None, None]:
+    """Isolate each test from the mount caches, env vars, and persistence."""
+    import tempfile
+    from pathlib import Path
+
+    from marimo._fork import erd as erd_module
+
+    # never read or write the developer's real persisted mount in tests
+    persist_dir = tempfile.mkdtemp()
+    monkeypatch.setattr(
+        datasource_mount,
+        "_persist_file",
+        lambda: Path(persist_dir) / "mount.json",
+    )
+    monkeypatch.setattr(erd_module, "_cache", None)
     saved = os.environ.pop(datasource_mount.DATA_SOURCE_ENV_VAR, None)
     saved_erd = os.environ.pop(schema_context.ERD_ENV_VAR, None)
     datasource_mount._mounted_connection = datasource_mount._UNRESOLVED

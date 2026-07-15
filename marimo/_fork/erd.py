@@ -105,11 +105,21 @@ _cache: tuple[str, float, Optional[ErdIndex]] | None = None
 
 def set_erd(path: str) -> None:
     """Record the ERD path so child (kernel) processes inherit it."""
+    from marimo._fork.datasource_mount import persist_mount
+
     os.environ[ERD_ENV_VAR] = path
+    persist_mount(erd=path)
 
 
 def get_erd_path() -> Optional[str]:
     spec = os.environ.get(ERD_ENV_VAR, "").strip()
+    if not spec:
+        # fall back to the persisted mount (survives server restarts)
+        from marimo._fork.datasource_mount import load_persisted_mount
+
+        spec = load_persisted_mount().get("erd", "").strip()
+        if spec:
+            os.environ[ERD_ENV_VAR] = spec
     return spec or None
 
 
@@ -251,7 +261,10 @@ def render_for_prompt(index: ErdIndex, max_chars: int) -> str:
         "columns and join paths "
         "first: call the `get_erd_relationships` tool with keywords "
         "(e.g. ['invoice', 'bpartner']), or query "
-        "information_schema.columns when the tool is unavailable.\n\n"
+        "information_schema.columns when the tool is unavailable. If you "
+        "cannot actually invoke tools in this mode, do NOT write out a "
+        "tool call as text/JSON - write a SQL cell querying "
+        "information_schema.columns instead.\n\n"
         "Table inventory (exact names):\n"
     )
     inventory = _table_inventory(

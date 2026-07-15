@@ -20,7 +20,19 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(autouse=True)
-def reset_erd() -> None:
+def reset_erd(monkeypatch: pytest.MonkeyPatch) -> None:
+    import tempfile
+    from pathlib import Path
+
+    from marimo._fork import datasource_mount
+
+    # never read or write the developer's real persisted mount in tests
+    persist_dir = tempfile.mkdtemp()
+    monkeypatch.setattr(
+        datasource_mount,
+        "_persist_file",
+        lambda: Path(persist_dir) / "mount.json",
+    )
     erd._cache = None
     os.environ.pop(erd.ERD_ENV_VAR, None)
     yield
@@ -175,6 +187,18 @@ def test_erd_cache_busts_on_mtime(tmp_path: Path) -> None:
     os.utime(path, (path.stat().st_atime, path.stat().st_mtime + 5))
     index2 = erd.load_erd()
     assert "extra" in index2.tables
+
+
+def test_mount_settings_persist() -> None:
+    from marimo._fork import datasource_mount
+
+    datasource_mount.persist_mount(data_source="sqlite:///x.db")
+    datasource_mount.persist_mount(erd="C:/erd/model.pgerd")
+    saved = datasource_mount.load_persisted_mount()
+    assert saved == {
+        "data_source": "sqlite:///x.db",
+        "erd": "C:/erd/model.pgerd",
+    }
 
 
 def test_mask_secret() -> None:
