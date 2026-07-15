@@ -595,7 +595,7 @@ rules = '''
 - Prefer these core transactional tables over report/summary lookalikes (hscr_*, custppr_*) unless the user asks for those reports by name.
 - marimo has NO `display` function and no `from marimo import display`. A cell displays its LAST EXPRESSION automatically: end the cell with the chart/dataframe object itself (e.g. the altair chart), never display(...), print(...) or plt.show().
 - 'store' / 'branch' = ad_org (columns: ad_org_id, name); join any table's ad_org_id = ad_org.ad_org_id to group per store.
-- 'discounts' = c_discount (name, discount = PERCENTAGE, not amount). Applied to invoices via c_invoiceline.c_invoice_discount_id -> c_invoice_discount (c_invoice_discount_id, c_invoice_id, c_discount_id - a link table with NO amount column). There is no stored discount amount: compute it as line amount x c_discount.discount / 100.
+- 'discounts' live on SALES ORDER LINES: c_orderline.discount is a PERCENTAGE (c_invoice_discount is unused - 0 rows). Discount amount per line = ol.linenetamt * ol.discount / (100 - ol.discount). Filter ol.discount <> 0, join c_orderline.c_order_id = c_order.c_order_id (use c_order.dateordered for dates, issotrx = 'Y' for sales) and c_order.ad_org_id = ad_org.ad_org_id for the store.
 '''
 
 [tool.marimo.save]
