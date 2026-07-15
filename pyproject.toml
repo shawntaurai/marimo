@@ -593,6 +593,7 @@ rules = '''
   'orders' = c_order / c_orderline (issotrx = 'Y' sales orders, 'N' purchase orders).
   'products' = m_product; 'shipments/receipts' = m_inout / m_inoutline.
 - Prefer these core transactional tables over report/summary lookalikes (hscr_*, custppr_*) unless the user asks for those reports by name.
+- marimo has NO `display` function and no `from marimo import display`. A cell displays its LAST EXPRESSION automatically: end the cell with the chart/dataframe object itself (e.g. the altair chart), never display(...), print(...) or plt.show().
 '''
 
 [tool.marimo.save]

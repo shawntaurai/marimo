@@ -160,7 +160,12 @@ def _create_connection(spec: str) -> Any:
 def _sqlalchemy_engine(uri: str) -> Any:
     import sqlalchemy
 
-    engine = sqlalchemy.create_engine(uri)
+    # pre_ping transparently replaces connections the database or network
+    # dropped while idle ("server closed the connection unexpectedly");
+    # recycle retires pooled connections before typical LAN idle timeouts.
+    engine = sqlalchemy.create_engine(
+        uri, pool_pre_ping=True, pool_recycle=900
+    )
     # Fail fast at mount time instead of at first query
     with engine.connect():
         pass
