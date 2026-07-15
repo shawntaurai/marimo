@@ -23,6 +23,13 @@ pip wheel . --no-deps -w dist/
 Stock `marimo` from PyPI must NOT be installed alongside — both ship the
 `marimo` module and would overwrite each other.
 
+**Stop all dedomena/marimo servers before running `pip install`/`uninstall`
+of this package.** Windows locks a running process's launcher `.exe`, and
+pip fails *midway* — it removes the old install first, then dies on the
+locked file, leaving the package uninstalled and the CLIs broken. (Routine
+upstream syncs don't need pip at all: the version is read from the
+checkout, so only entry-point changes require a reinstall.)
+
 ## Self-update button
 
 When upstream marimo publishes a new release, the home page (edit mode)
