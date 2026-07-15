@@ -53,6 +53,18 @@ def set_data_source(spec: str) -> None:
     os.environ[DATA_SOURCE_ENV_VAR] = spec
 
 
+def remount(spec: str) -> bool:
+    """Point the process at a new data source and resolve it now.
+
+    Used by the UI mount panel; affects this process immediately and any
+    kernel spawned afterwards (they inherit the environment).
+    """
+    global _mounted_connection
+    set_data_source(spec)
+    _mounted_connection = _UNRESOLVED
+    return get_mounted_connection() is not None
+
+
 def get_mounted_connection() -> Optional[Any]:
     """Return the session's mounted connection, resolving it on first use.
 

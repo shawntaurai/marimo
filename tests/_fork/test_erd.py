@@ -1,0 +1,150 @@
+# Copyright 2026 Marimo. All rights reserved.
+"""Tests for ERD parsing (.pgerd), lookup tool, and mount endpoints."""
+
+from __future__ import annotations
+
+import json
+import os
+from typing import TYPE_CHECKING
+
+import pytest
+
+from marimo._fork import erd
+from marimo._fork.ai_tools import (
+    GetErdRelationships,
+    GetErdRelationshipsArgs,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+@pytest.fixture(autouse=True)
+def reset_erd() -> None:
+    erd._cache = None
+    os.environ.pop(erd.ERD_ENV_VAR, None)
+    yield
+    erd._cache = None
+    os.environ.pop(erd.ERD_ENV_VAR, None)
+
+
+def _pgerd_doc() -> dict:
+    """Minimal pgAdmin ERD: orders -> partners via partner_id."""
+
+    def node(uid: str, name: str, columns: list[str]) -> dict:
+        return {
+            "id": uid,
+            "type": "table",
+            "otherInfo": {
+                "data": {
+                    "name": name,
+                    "schema": "public",
+                    "columns": [
+                        {"name": c, "attnum": i + 1, "cltype": "text"}
+                        for i, c in enumerate(columns)
+                    ],
+                }
+            },
+        }
+
+    return {
+        "version": 1,
+        "data": {
+            "layers": [
+                {
+                    "type": "diagram-nodes",
+                    "models": {
+                        "uid-partners": node(
+                            "uid-partners", "partners", ["partner_id", "name"]
+                        ),
+                        "uid-orders": node(
+                            "uid-orders",
+                            "orders",
+                            ["order_id", "partner_id", "total"],
+                        ),
+                    },
+                },
+                {
+                    "type": "diagram-links",
+                    "models": {
+                        "l1": {
+                            "data": {
+                                "local_table_uid": "uid-orders",
+                                "local_column_attnum": 2,
+                                "referenced_table_uid": "uid-partners",
+                                "referenced_column_attnum": 1,
+                            }
+                        }
+                    },
+                },
+            ]
+        },
+    }
+
+
+def _write_pgerd(tmp_path: Path) -> Path:
+    path = tmp_path / "model.pgerd"
+    path.write_text(json.dumps(_pgerd_doc()), encoding="utf-8")
+    return path
+
+
+def test_pgerd_parses_into_graph(tmp_path: Path) -> None:
+    index = erd.reload_erd(str(_write_pgerd(tmp_path)))
+    assert index is not None
+    assert index.is_graph
+    assert index.tables["orders"] == ["order_id", "partner_id", "total"]
+    assert [r.render() for r in index.relationships] == [
+        "orders.partner_id -> partners.partner_id"
+    ]
+
+
+def test_small_pgerd_renders_inline(tmp_path: Path) -> None:
+    index = erd.reload_erd(str(_write_pgerd(tmp_path)))
+    body = erd.render_for_prompt(index, max_chars=8000)
+    assert "orders.partner_id -> partners.partner_id" in body
+
+
+def test_large_pgerd_defers_to_tool(tmp_path: Path) -> None:
+    index = erd.reload_erd(str(_write_pgerd(tmp_path)))
+    body = erd.render_for_prompt(index, max_chars=10)
+    assert "get_erd_relationships" in body
+
+
+def test_lookup_tool_finds_relationships(tmp_path: Path) -> None:
+    erd.reload_erd(str(_write_pgerd(tmp_path)))
+    tool = GetErdRelationships.__new__(GetErdRelationships)
+    out = tool.handle(GetErdRelationshipsArgs(keywords=["order"]))
+    assert "orders.partner_id -> partners.partner_id" in out.relationships
+    assert out.table_columns["orders"] == ["order_id", "partner_id", "total"]
+
+
+def test_lookup_tool_without_erd() -> None:
+    tool = GetErdRelationships.__new__(GetErdRelationships)
+    out = tool.handle(GetErdRelationshipsArgs(keywords=["order"]))
+    assert out.status == "error"
+
+
+def test_erd_cache_busts_on_mtime(tmp_path: Path) -> None:
+    path = _write_pgerd(tmp_path)
+    index = erd.reload_erd(str(path))
+    assert index is not None
+    doc = _pgerd_doc()
+    doc["data"]["layers"][0]["models"]["uid-extra"] = {
+        "id": "uid-extra",
+        "type": "table",
+        "otherInfo": {
+            "data": {"name": "extra", "schema": "public", "columns": []}
+        },
+    }
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    os.utime(path, (path.stat().st_atime, path.stat().st_mtime + 5))
+    index2 = erd.load_erd()
+    assert "extra" in index2.tables
+
+
+def test_mask_secret() -> None:
+    from marimo._fork.api import _mask_secret
+
+    masked = _mask_secret("postgresql://postgres:tbJbC5%40%40vM@host:5432/db")
+    assert "tbJbC5" not in masked
+    assert masked == "postgresql://postgres:****@host:5432/db"

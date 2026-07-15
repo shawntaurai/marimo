@@ -84,9 +84,9 @@ def build_routes(base_url: str = "") -> list[BaseRoute]:
         packages_router, prefix="/api/packages", name="packages"
     )
     app_router.include_router(lsp_router, prefix="/api/lsp", name="lsp")
-    # Fork: self-update endpoints (see marimo/_fork/updater.py)
+    # Fork: self-update + mount endpoints (see marimo/_fork/api.py)
     app_router.include_router(
-        fork_router, prefix="/api/fork/update", name="fork_update"
+        fork_router, prefix="/api/fork", name="fork"
     )
     app_router.include_router(health_router, name="health")
     app_router.include_router(ws_router, name="ws")

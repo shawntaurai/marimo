@@ -87,6 +87,17 @@ capped via `MARIMO_SCHEMA_CONTEXT_MAX_CHARS` (default 12000). Code:
 `marimo/_fork/schema_context.py`; hook in `marimo/_server/ai/prompts.py`
 (`_common_chat_sections`).
 
+### UI mount panel (per server, from the browser)
+
+Every edit-mode page (home and each notebook) shows a floating 🗄 button
+(bottom-left). It opens a panel to set the **data source URI** and the
+**ERD file path** without CLI flags, POSTing to `/api/fork/mount`
+(secrets are masked on read-back). Changes apply to AI chat immediately
+and to any kernel (re)started afterwards — restart the notebook's kernel
+to expose the `datasource` variable in cells. The mount is per-server:
+run separate `dedomena edit` instances for different databases. Code:
+`marimo/_fork/mount_panel.py`, endpoints in `marimo/_fork/api.py`.
+
 ### ERD context (`--erd`)
 
 Many production databases declare no foreign keys, so introspection can't
@@ -98,12 +109,19 @@ dedomena edit report.py \
   --erd ./docs/data_model.mmd
 ```
 
-The ERD must be a **text** format the LLM can read: Mermaid `erDiagram`
-(`.mmd`), DBML, PlantUML, markdown, or SQL DDL — image exports are
-rejected with a log message (export the diagram as text from your ERD
-tool). The file is re-read on every message, so edits apply without a
+Accepted formats: **pgAdmin `.pgerd` exports** (parsed into a queryable
+relationship index — `marimo/_fork/erd.py`), plus text formats the LLM
+reads directly: Mermaid `erDiagram` (`.mmd`), DBML, PlantUML, markdown,
+SQL DDL. Image exports are rejected with a log message. The file is
+re-read when it changes, so saving a new export applies without a
 restart. Env var: `MARIMO_DATA_SOURCE_ERD`; size cap
 `MARIMO_ERD_MAX_CHARS` (default 8000).
+
+Small ERDs are inlined in the prompt. ERP-sized ones (e.g. a whole-DB
+.pgerd with thousands of relationships) are summarized instead, and the
+model uses the fork's `get_erd_relationships` AI tool (registered in
+marimo's tool registry, available in agent mode) to look up join paths
+and column lists for just the tables a question involves.
 
 **When an ERD is supplied it replaces whole-database indexing**: the AI
 context carries only the dialect, the `datasource` variable, and the ERD,

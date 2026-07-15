@@ -159,12 +159,14 @@ def home_page_template(
     html = html.replace("{{ base_url }}", base_url)
     # Fork: brand the home page tab title (see marimo/_fork/branding.py)
     from marimo._fork.branding import APP_NAME
+    from marimo._fork.mount_panel import inject_mount_panel
     from marimo._fork.updater import inject_update_button
 
     html = html.replace("{{ title }}", APP_NAME)
-    # Fork: show an update button when a new upstream release is available
+    # Fork: update button + data-source mount panel (edit mode only)
     if mode == SessionMode.EDIT:
         html = inject_update_button(html)
+        html = inject_mount_panel(html)
     html = html.replace("{{ filename }}", "")
 
     # TODO(Trevor): Legacy, required by VS Code plugin. Remove when plugin is updated (see frontend/index.html)
@@ -286,6 +288,12 @@ def notebook_page_template(
     html_head: str | None = None,
 ) -> str:
     html = html.replace("{{ base_url }}", base_url)
+
+    # Fork: data-source mount panel inside each notebook (edit mode only)
+    if mode == SessionMode.EDIT:
+        from marimo._fork.mount_panel import inject_mount_panel
+
+        html = inject_mount_panel(html)
 
     # When we have a remote URL, let's pre-populate the index.html page
     # with a view of the notebook.
