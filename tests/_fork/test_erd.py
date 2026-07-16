@@ -209,26 +209,34 @@ def test_mask_secret() -> None:
     assert masked == "postgresql://postgres:****@host:5432/db"
 
 
-def test_instance_manual_injected(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from marimo._fork import instance_manual
+def test_sql_correction_suggests_column(tmp_path: Path) -> None:
+    from marimo._fork import sql_correction
 
-    manual = tmp_path / "manual.md"
-    manual.write_text("# Manual\nAlways use dateinvoiced.", encoding="utf-8")
-    monkeypatch.setenv(instance_manual.MANUAL_ENV_VAR, str(manual))
-    monkeypatch.setattr(instance_manual, "_cache", None)
-
-    section = instance_manual.get_manual_section()
-    assert "<instance_operating_manual>" in section
-    assert "Always use dateinvoiced." in section
+    erd.reload_erd(str(_write_pgerd(tmp_path)))
+    hint = sql_correction.suggest_from_erd(
+        'column "partnre_id" does not exist'
+    )
+    assert hint is not None
+    assert "partner_id" in hint
 
 
-def test_instance_manual_absent_is_empty(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from marimo._fork import instance_manual
+def test_sql_correction_suggests_table(tmp_path: Path) -> None:
+    from marimo._fork import sql_correction
 
-    monkeypatch.delenv(instance_manual.MANUAL_ENV_VAR, raising=False)
-    monkeypatch.setattr(instance_manual, "_cache", None)
-    assert instance_manual.get_manual_section() == ""
+    erd.reload_erd(str(_write_pgerd(tmp_path)))
+    hint = sql_correction.suggest_from_erd('relation "order" does not exist')
+    assert hint is not None
+    assert "orders" in hint
+
+
+def test_sql_correction_none_without_match(tmp_path: Path) -> None:
+    from marimo._fork import sql_correction
+
+    erd.reload_erd(str(_write_pgerd(tmp_path)))
+    assert sql_correction.suggest_from_erd("unrelated error") is None
+
+
+def test_sql_correction_none_without_erd() -> None:
+    from marimo._fork import sql_correction
+
+    assert sql_correction.suggest_from_erd('column "x" does not exist') is None

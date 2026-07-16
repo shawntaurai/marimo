@@ -123,6 +123,15 @@ model uses the fork's `get_erd_relationships` AI tool (registered in
 marimo's tool registry, available in agent mode) to look up join paths
 and column lists for just the tables a question involves.
 
+**Self-correcting SQL errors:** when a query against the mounted source
+references a table/column that doesn't exist, the database error is
+enriched with the nearest real names from the ERD ("Closest real columns
+(from the ERD): ..."). The hint lands in the cell error and in what the
+"Fix with AI" button sends to the model, so the correct identifier is one
+click away. Code: `marimo/_fork/sql_correction.py`; hook in
+`marimo/_sql/sql.py`. Suggestions are surfaced, not auto-applied — a fuzzy
+match could pick the wrong column and return confidently wrong results.
+
 **When an ERD is supplied it replaces whole-database indexing**: the AI
 context carries only the dialect, the `datasource` variable, and the ERD,
 plus instructions to query the database (information_schema / sample

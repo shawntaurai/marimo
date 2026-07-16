@@ -1,0 +1,99 @@
+# Copyright 2026 Marimo. All rights reserved.
+"""ERD-based self-correction for SQL errors (fork, see FORK.md).
+
+When a query against the mounted data source references a table or column
+that does not exist, the database error is enriched with the nearest REAL
+names from the user's ERD ("did you mean ..."). The hint lands in the cell
+error and in what the "Fix with AI" button sends to the model, so the
+correct identifier is one click away - a deterministic learning loop that
+never depends on the model guessing.
+
+We surface suggestions rather than silently rewriting and retrying: a
+fuzzy match could pick the wrong column and produce confidently wrong
+results, which is worse than a clear error.
+"""
+
+from __future__ import annotations
+
+import re
+from difflib import get_close_matches
+from typing import Optional
+
+from marimo import _loggers
+
+LOGGER = _loggers.marimo_logger()
+
+# Postgres / DuckDB "does not exist" patterns
+_TABLE_RE = re.compile(
+    r'(?:relation|table)(?: with name)? "?([\w.]+)"? does not exist',
+    re.IGNORECASE,
+)
+_COLUMN_RE = re.compile(r'column "?([\w.]+)"? does not exist', re.IGNORECASE)
+
+_MAX_SUGGESTIONS = 6
+
+
+def suggest_from_erd(error_message: str) -> Optional[str]:
+    """A 'did you mean' hint from the ERD, or None. Never raises."""
+    try:
+        from marimo._fork.erd import load_erd
+
+        index = load_erd()
+        if index is None or not index.is_graph:
+            return None
+
+        table_match = _TABLE_RE.search(error_message)
+        if table_match:
+            return _suggest_tables(table_match.group(1), index)
+
+        column_match = _COLUMN_RE.search(error_message)
+        if column_match:
+            return _suggest_columns(column_match.group(1), index)
+    except Exception as e:
+        LOGGER.warning("ERD suggestion failed: %s", e)
+    return None
+
+
+def _rank(bad: str, universe: list[str]) -> list[str]:
+    lowered = bad.lower()
+    close = get_close_matches(bad, universe, n=_MAX_SUGGESTIONS, cutoff=0.5)
+    substr = [name for name in universe if lowered in name.lower()]
+    # de-duplicate, preserve order (close matches first)
+    ordered: list[str] = []
+    for name in close + substr:
+        if name not in ordered:
+            ordered.append(name)
+    return ordered[:_MAX_SUGGESTIONS]
+
+
+def _suggest_tables(raw: str, index) -> Optional[str]:
+    bad = raw.split(".")[-1]
+    candidates = _rank(bad, list(index.tables))
+    if not candidates:
+        return None
+    return (
+        f"'{bad}' is not a table in the data model. Closest real tables "
+        f"(from the ERD): {', '.join(candidates)}. Use one of these exact "
+        "names - do not invent table names."
+    )
+
+
+def _suggest_columns(raw: str, index) -> Optional[str]:
+    bad = raw.split(".")[-1]
+    column_to_tables: dict[str, list[str]] = {}
+    for table, columns in index.tables.items():
+        for column in columns:
+            column_to_tables.setdefault(column, []).append(table)
+
+    candidates = _rank(bad, list(column_to_tables))
+    if not candidates:
+        return None
+    parts = []
+    for column in candidates:
+        tables = column_to_tables[column][:3]
+        parts.append(f"{column} (in {', '.join(tables)})")
+    return (
+        f"'{bad}' is not a column in the data model. Closest real columns "
+        f"(from the ERD): {'; '.join(parts)}. Use one of these exact names "
+        "on the right table - do not invent column names."
+    )

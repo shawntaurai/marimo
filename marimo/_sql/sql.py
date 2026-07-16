@@ -137,6 +137,11 @@ def sql(
     try:
         df = sql_engine.execute(query)
     except Exception as e:
+        # Fork: enrich unknown-table/column errors with ERD "did you mean"
+        # suggestions so the correct name reaches the user and the AI fix.
+        from marimo._fork.sql_correction import suggest_from_erd
+
+        erd_hint = suggest_from_erd(str(e))
         if is_sql_parse_error(e):
             # NB. raising _from_ creates a noisier stack trace, but preserves
             # the original exception context for debugging.
@@ -145,7 +150,15 @@ def sql(
                 sql_statement=query,
                 sql_line=None,
                 sql_col=None,
-                hint=None,
+                hint=erd_hint,
+            ) from e
+        if erd_hint is not None:
+            raise MarimoSQLException(
+                message=str(e),
+                sql_statement=query,
+                sql_line=None,
+                sql_col=None,
+                hint=erd_hint,
             ) from e
         raise
 
