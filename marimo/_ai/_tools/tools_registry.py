@@ -16,10 +16,11 @@ from marimo._ai._tools.tools.lint import LintNotebook
 from marimo._ai._tools.tools.notebooks import GetActiveNotebooks
 from marimo._ai._tools.tools.rules import GetMarimoRules
 from marimo._ai._tools.tools.tables_and_variables import GetTablesAndVariables
-from marimo._fork.ai_tools import GetErdRelationships
+from marimo._fork.ai_tools import GetErdRelationships, GetTableSchema
 
 SUPPORTED_BACKEND_AND_MCP_TOOLS: list[type[ToolBase[Any, Any]]] = [
-    # Fork: ERD lookup for the mounted data source
+    # Fork: schema lookup (full catalog) + ERD relationships
+    GetTableSchema,
     GetErdRelationships,
     GetMarimoRules,
     GetActiveNotebooks,

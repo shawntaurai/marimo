@@ -123,6 +123,16 @@ model uses the fork's `get_erd_relationships` AI tool (registered in
 marimo's tool registry, available in agent mode) to look up join paths
 and column lists for just the tables a question involves.
 
+**Complete schema catalog (whole database on demand):**
+`scripts/fork_dump_schema.py` dumps the entire mounted database's schema
+(every table, column+type, PK, FK) to `dedomena_schema.json` in the marimo
+config dir — an authoritative "instance" of the database (large ERPs run
+to hundreds of tables / tens of thousands of columns). Too large to
+inject, so it's retrieved on demand: the `get_table_schema` AI tool
+returns any table's exact columns, and the error-correction "did you mean"
+prefers this catalog over the ERD. Re-run the dump after schema changes.
+Code: `marimo/_fork/schema_catalog.py`, `marimo/_fork/ai_tools.py`.
+
 **Self-correcting SQL errors:** when a query against the mounted source
 references a table/column that doesn't exist, the database error is
 enriched with the nearest real names from the ERD ("Closest real columns

@@ -25,6 +25,7 @@ def reset_erd(monkeypatch: pytest.MonkeyPatch) -> None:
     from pathlib import Path
 
     from marimo._fork import datasource_mount
+    from marimo._fork import schema_catalog
 
     # never read or write the developer's real persisted mount in tests
     persist_dir = tempfile.mkdtemp()
@@ -33,6 +34,11 @@ def reset_erd(monkeypatch: pytest.MonkeyPatch) -> None:
         "_persist_file",
         lambda: Path(persist_dir) / "mount.json",
     )
+    # neutralize the real schema catalog by default (tests opt in via env)
+    monkeypatch.setenv(
+        schema_catalog.SCHEMA_ENV_VAR, str(Path(persist_dir) / "none.json")
+    )
+    monkeypatch.setattr(schema_catalog, "_cache", None)
     erd._cache = None
     os.environ.pop(erd.ERD_ENV_VAR, None)
     yield
@@ -204,8 +210,8 @@ def test_mount_settings_persist() -> None:
 def test_mask_secret() -> None:
     from marimo._fork.api import _mask_secret
 
-    masked = _mask_secret("postgresql://postgres:tbJbC5%40%40vM@host:5432/db")
-    assert "tbJbC5" not in masked
+    masked = _mask_secret("postgresql://postgres:s3cr3t-pw@host:5432/db")
+    assert "s3cr3t" not in masked
     assert masked == "postgresql://postgres:****@host:5432/db"
 
 
@@ -252,3 +258,72 @@ def test_sql_correction_scopes_to_qualified_table(tmp_path: Path) -> None:
     )
     assert hint is not None
     assert "partner_id (on orders)" in hint
+
+
+def test_schema_catalog_and_tool(tmp_path, monkeypatch) -> None:
+    import json as _json
+
+    from marimo._fork import schema_catalog
+    from marimo._fork.ai_tools import GetTableSchema, GetTableSchemaArgs
+
+    doc = {
+        "dialect": "postgresql",
+        "tables": {
+            "c_invoice": {
+                "columns": [
+                    {"name": "c_invoice_id", "type": "varchar"},
+                    {"name": "grandtotal", "type": "numeric"},
+                ],
+                "pk": ["c_invoice_id"],
+                "fks": [
+                    {
+                        "column": "c_bpartner_id",
+                        "ref_table": "c_bpartner",
+                        "ref_column": "c_bpartner_id",
+                    }
+                ],
+            }
+        },
+    }
+    path = tmp_path / "schema.json"
+    path.write_text(_json.dumps(doc), encoding="utf-8")
+    monkeypatch.setenv(schema_catalog.SCHEMA_ENV_VAR, str(path))
+    monkeypatch.setattr(schema_catalog, "_cache", None)
+
+    assert schema_catalog.all_table_names() == ["c_invoice"]
+    described = schema_catalog.describe_tables(["c_invoice"])
+    assert "c_invoice_id varchar PK" in described
+    assert "FK c_invoice.c_bpartner_id -> c_bpartner" in described
+
+    tool = GetTableSchema.__new__(GetTableSchema)
+    out = tool.handle(GetTableSchemaArgs(tables=["c_invoice"]))
+    assert "grandtotal" in out.schema
+
+
+def test_catalog_column_correction(tmp_path, monkeypatch) -> None:
+    import json as _json
+
+    from marimo._fork import schema_catalog, sql_correction
+
+    doc = {
+        "tables": {
+            "c_invoiceline": {
+                "columns": [
+                    {"name": "qtyinvoiced", "type": "numeric"},
+                    {"name": "priceactual", "type": "numeric"},
+                ],
+                "pk": [],
+                "fks": [],
+            }
+        }
+    }
+    path = tmp_path / "schema.json"
+    path.write_text(_json.dumps(doc), encoding="utf-8")
+    monkeypatch.setenv(schema_catalog.SCHEMA_ENV_VAR, str(path))
+    monkeypatch.setattr(schema_catalog, "_cache", None)
+
+    hint = sql_correction.suggest_from_erd(
+        "column c_invoiceline.qtyentered does not exist"
+    )
+    assert hint is not None
+    assert "qtyinvoiced" in hint

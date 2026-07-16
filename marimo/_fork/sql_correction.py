@@ -34,7 +34,14 @@ _MAX_SUGGESTIONS = 6
 
 
 def suggest_from_erd(error_message: str) -> Optional[str]:
-    """A 'did you mean' hint from the ERD, or None. Never raises."""
+    """A 'did you mean' hint, or None. Never raises.
+
+    Prefers the authoritative full schema catalog (all tables); falls
+    back to the user's ERD. Name kept for backward compatibility.
+    """
+    hint = _suggest_from_catalog(error_message)
+    if hint:
+        return hint
     try:
         from marimo._fork.erd import load_erd
 
@@ -51,6 +58,45 @@ def suggest_from_erd(error_message: str) -> Optional[str]:
             return _suggest_columns(column_match.group(1), index)
     except Exception as e:
         LOGGER.warning("ERD suggestion failed: %s", e)
+    return None
+
+
+def _suggest_from_catalog(error_message: str) -> Optional[str]:
+    """'Did you mean' from the authoritative schema catalog, or None."""
+    try:
+        from marimo._fork import schema_catalog
+
+        if schema_catalog.load_catalog() is None:
+            return None
+
+        table_match = _TABLE_RE.search(error_message)
+        if table_match:
+            bad = table_match.group(1).split(".")[-1]
+            candidates = schema_catalog.find_table(bad)
+            if candidates:
+                return (
+                    f"'{bad}' is not a table in the database. Closest real "
+                    f"tables: {', '.join(candidates)}. Use one of these "
+                    "exact names."
+                )
+            return None
+
+        column_match = _COLUMN_RE.search(error_message)
+        if column_match:
+            segments = column_match.group(1).split(".")
+            bad = segments[-1]
+            qualifier = segments[-2] if len(segments) >= 2 else None
+            candidates = schema_catalog.find_column(bad, table=qualifier)
+            if not candidates:
+                return None
+            where = f" on {qualifier}" if qualifier else ""
+            return (
+                f"'{bad}' is not a column{where}. Closest real columns "
+                f"(from the live schema): {', '.join(candidates)}. Use one "
+                "of these exact names - do not invent column names."
+            )
+    except Exception as e:
+        LOGGER.warning("catalog suggestion failed: %s", e)
     return None
 
 

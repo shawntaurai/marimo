@@ -20,7 +20,9 @@ from marimo import _loggers
 LOGGER = _loggers.marimo_logger()
 
 MANUAL_ENV_VAR = "MARIMO_AI_MANUAL"
-_MAX_CHARS = 16_000
+# Room for the database knowledge pack (core-table schema + golden queries).
+# ~20k chars ≈ 5k tokens; fits the 16k-token context alongside the ERD.
+_MAX_CHARS = 20_000
 
 _cache: tuple[str, float, str] | None = None
 

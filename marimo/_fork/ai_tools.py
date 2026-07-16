@@ -89,3 +89,55 @@ class GetErdRelationships(
                 "Use these join columns to write the SQL query",
             ],
         )
+
+
+@dataclass
+class GetTableSchemaArgs:
+    tables: list[str]
+    """Exact table names to look up, e.g. ["c_invoice", "c_orderline"]."""
+
+
+@dataclass
+class GetTableSchemaOutput(SuccessResult):
+    schema: str = ""
+
+
+class GetTableSchema(ToolBase[GetTableSchemaArgs, GetTableSchemaOutput]):
+    """Look up the exact columns, types, primary keys and foreign keys of
+    tables in the mounted database (the complete schema catalog).
+
+    Use this to get a table's real column names before writing SQL, so you
+    never invent columns. Accepts any table in the database.
+
+    Returns:
+        The tables' exact columns (with types/PK) and their foreign keys.
+    """
+
+    guidelines = ToolGuidelines(
+        when_to_use=[
+            "Before writing SQL, to confirm a table's exact column names",
+            "When an error says a column/table does not exist",
+        ],
+        avoid_if=["No data source is mounted in this session"],
+    )
+
+    def handle(self, args: GetTableSchemaArgs) -> GetTableSchemaOutput:
+        from marimo._fork.schema_catalog import describe_tables, load_catalog
+
+        if load_catalog() is None:
+            return GetTableSchemaOutput(
+                status="error",
+                message=(
+                    "No schema catalog available. Query "
+                    "information_schema.columns instead."
+                ),
+            )
+        described = describe_tables(args.tables)
+        if not described:
+            return GetTableSchemaOutput(
+                message="No matching tables. Check the exact table names."
+            )
+        return GetTableSchemaOutput(
+            schema=described,
+            next_steps=["Use these exact column names to write the SQL"],
+        )
