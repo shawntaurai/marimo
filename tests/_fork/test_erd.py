@@ -240,3 +240,15 @@ def test_sql_correction_none_without_erd() -> None:
     from marimo._fork import sql_correction
 
     assert sql_correction.suggest_from_erd('column "x" does not exist') is None
+
+
+def test_sql_correction_scopes_to_qualified_table(tmp_path: Path) -> None:
+    from marimo._fork import sql_correction
+
+    erd.reload_erd(str(_write_pgerd(tmp_path)))
+    # 'orders' has partner_id; a qualified miss should prefer that table
+    hint = sql_correction.suggest_from_erd(
+        'column "orders.partner_di" does not exist'
+    )
+    assert hint is not None
+    assert "partner_id (on orders)" in hint

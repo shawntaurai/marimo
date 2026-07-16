@@ -79,19 +79,40 @@ def _suggest_tables(raw: str, index) -> Optional[str]:
 
 
 def _suggest_columns(raw: str, index) -> Optional[str]:
-    bad = raw.split(".")[-1]
+    segments = raw.split(".")
+    bad = segments[-1]
+    qualifier = segments[-2] if len(segments) >= 2 else None
+
     column_to_tables: dict[str, list[str]] = {}
     for table, columns in index.tables.items():
         for column in columns:
             column_to_tables.setdefault(column, []).append(table)
 
-    candidates = _rank(bad, list(column_to_tables))
+    # If the error qualifies the column with a real table name
+    # (`c_invoiceline.qtyentered`), that table's own columns are the
+    # relevant suggestions - rank them first, since a global spelling
+    # match can otherwise surface a same-named column on the wrong table.
+    scoped: list[str] = []
+    if qualifier and qualifier in index.tables:
+        scoped = _rank(bad, index.tables[qualifier])
+
+    ranked_global = _rank(bad, list(column_to_tables))
+    candidates: list[str] = []
+    for column in scoped + ranked_global:
+        if column not in candidates:
+            candidates.append(column)
+    candidates = candidates[:_MAX_SUGGESTIONS]
     if not candidates:
         return None
+
+    scoped_set = set(scoped)
     parts = []
     for column in candidates:
-        tables = column_to_tables[column][:3]
-        parts.append(f"{column} (in {', '.join(tables)})")
+        if column in scoped_set:
+            parts.append(f"{column} (on {qualifier})")
+        else:
+            tables = column_to_tables[column][:3]
+            parts.append(f"{column} (in {', '.join(tables)})")
     return (
         f"'{bad}' is not a column in the data model. Closest real columns "
         f"(from the ERD): {'; '.join(parts)}. Use one of these exact names "
